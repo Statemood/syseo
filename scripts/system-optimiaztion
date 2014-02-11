@@ -1,0 +1,226 @@
+#! /bin/bash
+
+# 用于系统基本安全设置和优化
+# Created by Statemood, 2013-08-29
+# TAG: CentOS ONLY
+
+Config=$(dirname `pwd`)/config
+Script=$(dirname `pwd`)/scripts
+
+Profile=/etc/profile
+Rclocal=/etc/rc.local
+Crontab=/etc/crontab
+Pamlogn=/etc/pam.d/login
+Limitcf=/etc/security/limits.conf
+sysinfo='WARNING: AUTHORIZED ONLY! '
+cadfile=/etc/init/control-alt-delete.conf
+rmusers='adm lp uucp games gopher ftp operator saslauth tcpdump'
+rmservs='atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve'                                  
+PATH='/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin'
+
+grep -q 'CentOS' /etc/issue                                        
+if [ $? = 1 ]                                                                                                     
+then                                                                                                                   
+    echo -e "\033[1;31mError: CentOS ONLY\033[0m"
+    exit 1
+fi
+sysinit(){
+    echo -e "Set $2 to $(basename $1)"
+    echo -e "$2"        >> $1
+}
+for sysagv in "$@"
+do
+    case $sysagv in
+        -ug|--user-group)
+            usergroup="$2"
+            shift 2
+            ;;
+        --wheel-user)
+            wheeluser="$2"
+            shift 2
+            ;;
+        --sudo-user)
+            sudouser="$2"
+            shift 2
+            ;;
+        --ssh-user)
+            sshusers="$2"
+            echo -e "AllowUsers\t $sshusers" >> $config/sshd_config
+            shift 2
+            ;;
+        --use-google-pub-dns)
+            echo "nameserver 8.8.8.8" >  /etc/resolv.conf
+            echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+            ;;
+    esac
+done
+                                                                                     
+# 使用 'readonly' 保护变量不被修改
+# 设置登录超时退出时间为1800秒
+sysinit "$Profile" "export TMOUT=1800"
+
+# 设置PATH, 不得加入以下路径('./', '.', '..', '~/bin')
+sysinit "$Profile" "export PATH=$PATH"
+
+# 设置history日期格式        
+sysinit "$Profile" "export   HISTTIMEFORMAT=\"%F %T \`whoami\`(\`who am i | awk '{print \$1,\$5}'\`) \""                
+sysinit "$Profile" "readonly HISTTIMEFORMAT TMOUT"
+
+# 开机更改selinux为被动模式
+sysinit "$Rclocal" "/usr/sbin/setenforce 0"
+/usr/sbin/setenforce 0
+
+echo "$sysingo" > /etc/issue
+echo "$sysinfo" > /etc/system-release
+
+# 开机加载模块
+sysinit "$Rclocal" "/sbin/modprobe bridge"
+sysinit "$Rclocal" "/sbin/modprobe ip_conntrack"
+/sbin/modprobe bridge
+/sbin/modprobe ip_conntrack
+
+# 开机设置ulimit
+sysinit "$Rclocal" "ulimit -SH 100000"
+sysinit "$Rclocal" "ulimit -n  100000"
+
+# 开机加载防火墙规则
+sysinit "$Rclocal" "/usr/local/sbin/firewall"
+
+# 开机时间同步
+sysinit "$Rclocal" "/usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1 &"
+/usr/sbin/ntpdate pool.ntp.org
+/sbin/hwclock -w
+
+# 定时时间同步, 每日凌晨 23:00
+sysinit "$Crontab" "00 23 *  *  *   root    /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1"
+
+# 替换sshd_config文件
+sshd_config=/etc/ssh/sshd_config
+mv     $sshd_config $sshd_config.default
+cp -rf $Config/sshd_config $sshd_config
+service sshd restart
+echo -e "\033[1;41mATTENTION! don't forget to login in a new terminal window and login into this server make sure the ssh service is working fine after the config file replaced\033[0m"
+
+# 系统/网络/内核/文件等优化选项
+cp -rf $Config/sysctl.conf /etc/sysctl.conf 
+
+# 登录失败限制
+cp -rf $config/system-auth-ac /etc/pam.d/system-auth-ac
+
+pamlimit=/lib64/security/pam_limits.so
+if [ -f $pamlimit ]
+then
+    grep -q "$pamlimit" $Pamlogn
+    if [ $? = 1 ]
+    then
+        sysinit "$Pamlogn" "session    required     $pamlimit"
+    fi
+else
+    echo -e "\033[1;41mError: $pamlimit does not exist\033[0m"
+fi 
+
+limitsopt="* soft nproc  100000
+* hard nproc  100000
+* soft nofile 100000
+* hard nofile 100000
+
+# End of file"
+
+sed  -i 's/^# End of file//' $Limitcf
+echo -e "$limitsopt"     >> $Limitcf
+
+# 禁用 'Crtl+ALT+DEL'
+sed -i 's/^exec /#exec /g' $cadfile
+
+# 密码相关设置
+
+PASS_FL=/etc/login.defs
+PASS_MD=PASS_MAX_DAYS
+PASS_ML=PASS_MIN_LEN
+PASS_WA=PASS_WARN_AGE
+
+sed -i "s/^$PASS_MD/#$PASS_MD/g" $PASS_FL
+sed -i "s/^$PASS_ML/#$PASS_ML/g" $PASS_FL
+sed -i "s/^$PASS_WA/#$PASS_WA/g" $PASS_FL
+echo -e "$PASS_MD\t60"           $PASS_FL
+echo -e "$PASS_ML\t12"           $PASS_FL
+echo -e "$PASS_WA\t14"           $PASS_FL
+
+# 替换vim配置文件
+cp -rf $Config/vimrc /etc/vimrc
+
+# 限制使用crontab的用户
+test -f /etc/cron.deny && rm -rf /etc/cron.deny
+test -f /etc/at.deny   && rm -rf /etc/at.deny
+echo -e "root"  > /etc/cron.allow
+echo -e "root"  > /etc/at.allow
+chmod 600 /etc/cron.allow /etc/at.allow
+
+# 删除多余用户
+for u in $rmusers
+do
+    printf "Deleting user %-16s ..." "$u"
+    userdel $u > /dev/null
+    echo -e "\033[33mdone\033[0m"
+done
+
+# 关闭多余服务
+for srvs in $rmservs
+do
+    chkconfig $srvs off > /dev/null 2>&1
+done
+
+# 需要添加的用户:
+# username:group or username
+for ug in $usergroup
+do
+    echo $ug | grep -q ':'
+    if [ $? = 0 ]
+    then
+        usern=`echo $ug | awk -F ':' '{print $1}'`
+        group=`echo $ug | awk -F ':' '{print $2}'`
+    else
+        usern=$ug
+        group=users  # 默认用户组 
+    fi
+      
+    grep -q "$group" /etc/group
+    if [ $? != 0 ]
+    then
+        groupadd    $group
+    fi
+
+    useradd -g $group $usern -m
+    
+    mkdir -p -m 0700 ~$usern/.ssh
+    cp -rf $config/rsa/$usern.pub ~$usern/.ssh/authorized_keys
+    chown -R $usern:$group ~$usern
+    
+    echo $wheeluser | grep -q $usern
+    if [ $? = 0 ]
+    then
+        usermod -G wheel $usern
+    fi
+
+    echo $suduser   | grep -q $usern
+    if [ $? = 0 ]
+    then
+        echo -e "$usern\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    fi
+done
+
+# 限制 su 用户
+echo -e "auth\trequired\tpam_wheel.so use_uid" >> /etc/pam.d/su
+
+# 限制修改
+for f in passwd shadow group gshadow
+do
+    chattr +i /etc/$f
+done
+
+# 加载iptables自定义标准规则
+ipfw=/usr/local/sbin/firewall
+cp -rf $Script/iptables.firewall.standard $ipfw
+chown root:root $ipfw
+chmod 700 $ipfw
+chattr +i $ipfw

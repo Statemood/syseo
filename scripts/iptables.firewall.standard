@@ -1,0 +1,31 @@
+#! /bin/bash
+
+# ------------------------------------------
+# File: /usr/local/sbin/firewall
+#       root:root, 700
+# Created by Statemood, 2013.08.29
+# Updated by Statemood, 2013.08.29
+#
+# ------------------------------------------
+
+IPTABLES='/sbin/iptables'
+MONITORS='SERVER_IP'
+FWLOGOPT='--log-prefix "INVALID DROP " --log-ip-option --log-tcp-option'
+
+# init iptables
+$IPTABLES -F
+$IPTABLES -X
+$IPTABLES -P INPUT DROP
+
+# ACCEPT rules
+$IPTABLES -A INPUT -i lo -j ACCEPT
+$IPTABLES -A INPUT -m conntrack --ctstate INVALID                               -j LOG $FWLOGOPT
+$IPTABLES -A INPUT -m conntrack --ctstate INVALID                               -j DROP
+$IPTABLES -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED                   -j ACCEPT
+$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $MONITORS  --dport 22   -j ACCEPT
+$IPTABLES -A INPUT -m conntrack --ctstate NEW -p udp -s $MONITORS  --dport 161  -j ACCEPT
+$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $MONITORS  --dport 5666 -j ACCEPT
+$IPTABLES -A INPUT -p icmp -s $MONITORS --icmp-type echo-request                -j ACCEPT
+$IPTABLES -A INPUT -j DROP
+
+/sbin/service iptables save
