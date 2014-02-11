@@ -41,7 +41,7 @@ SyslogFacility AUTHPRIV
 LoginGraceTime 30
 PermitRootLogin yes
 StrictModes yes
-MaxAuthTries 2
+MaxAuthTries 5
 MaxSessions 30
 
 RSAAuthentication yes
