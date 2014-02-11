@@ -68,7 +68,6 @@ sysinit "$Profile" "readonly HISTTIMEFORMAT TMOUT"
 
 # 开机更改selinux为被动模式
 sysinit "$Rclocal" "/usr/sbin/setenforce 0"
-/usr/sbin/setenforce 0
 
 echo "$sysingo" > /etc/issue
 echo "$sysinfo" > /etc/system-release
@@ -76,8 +75,6 @@ echo "$sysinfo" > /etc/system-release
 # 开机加载模块
 sysinit "$Rclocal" "/sbin/modprobe bridge"
 sysinit "$Rclocal" "/sbin/modprobe ip_conntrack"
-/sbin/modprobe bridge
-/sbin/modprobe ip_conntrack
 
 # 开机设置ulimit
 sysinit "$Rclocal" "ulimit -SH 100000"
@@ -210,3 +207,5 @@ cp -rf $Script/iptables.firewall.standard $ipfw
 chown root:root $ipfw
 chmod 700 $ipfw
 chattr +i $ipfw
+
+echo -e "\033[1mPlease reboot to active change when ready\033[0m"
