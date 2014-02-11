@@ -4,9 +4,7 @@
 # Created by Statemood, 2013-08-29
 # TAG: CentOS ONLY
 
-Config=$(dirname `pwd`)/config
-Script=$(dirname `pwd`)/scripts
-
+Configd=config
 Profile=/etc/profile
 Rclocal=/etc/rc.local
 Crontab=/etc/crontab
@@ -94,15 +92,15 @@ sysinit "$Crontab" "00 23 *  *  *   root    /usr/sbin/ntpdate pool.ntp.org > /de
 # 替换sshd_config文件
 sshd_config=/etc/ssh/sshd_config
 mv     $sshd_config $sshd_config.default
-cp -rf $Config/sshd_config $sshd_config
+cp -rf $Configs/sshd_config $sshd_config
 service sshd restart
 echo -e "\033[1;41mATTENTION! don't forget to login in a new terminal window and login into this server make sure the ssh service is working fine after the config file replaced\033[0m"
 
 # 系统/网络/内核/文件等优化选项
-cp -rf $Config/sysctl.conf /etc/sysctl.conf 
+cp -rf $Configd/sysctl.conf /etc/sysctl.conf 
 
 # 登录失败限制
-cp -rf $config/system-auth-ac /etc/pam.d/system-auth-ac
+cp -rf $configd/system-auth-ac /etc/pam.d/system-auth-ac
 
 pamlimit=/lib64/security/pam_limits.so
 if [ -f $pamlimit ]
@@ -130,7 +128,7 @@ echo -e "$limitsopt"     >> $Limitcf
 sed -i 's/^exec /#exec /g' $cadfile
 
 # 替换vim配置文件
-cp -rf $Config/vimrc /etc/vimrc
+cp -rf $Configd/vimrc /etc/vimrc
 
 # 限制使用crontab的用户
 test -f /etc/cron.deny && rm -rf /etc/cron.deny
@@ -176,7 +174,7 @@ do
     useradd -g $group $usern -m
     
     mkdir -p -m 0700 ~$usern/.ssh
-    cp -rf $config/rsa/$usern.pub ~$usern/.ssh/authorized_keys
+    cp -rf $Configd/rsa/$usern.pub ~$usern/.ssh/authorized_keys
     chown -R $usern:$group ~$usern
     
     echo $wheeluser | grep -q $usern
@@ -203,7 +201,7 @@ done
 
 # 加载iptables自定义标准规则
 ipfw=/usr/local/sbin/firewall
-cp -rf $Script/iptables.firewall.standard $ipfw
+cp -rf iptables.firewall.standard $ipfw
 chown root:root $ipfw
 chmod 700 $ipfw
 chattr +i $ipfw
