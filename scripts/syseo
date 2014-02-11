@@ -132,19 +132,8 @@ echo -e "$limitsopt"     >> $Limitcf
 # 禁用 'Crtl+ALT+DEL'
 sed -i 's/^exec /#exec /g' $cadfile
 
-# 密码相关设置
-
-PASS_FL=/etc/login.defs
-PASS_MD=PASS_MAX_DAYS
-PASS_ML=PASS_MIN_LEN
-PASS_WA=PASS_WARN_AGE
-
-sed -i "s/^$PASS_MD/#$PASS_MD/g" $PASS_FL
-sed -i "s/^$PASS_ML/#$PASS_ML/g" $PASS_FL
-sed -i "s/^$PASS_WA/#$PASS_WA/g" $PASS_FL
-echo -e "$PASS_MD\t60"           $PASS_FL
-echo -e "$PASS_ML\t12"           $PASS_FL
-echo -e "$PASS_WA\t14"           $PASS_FL
+# 密码及登录设置
+cp -rf $config/system-auth-ac /etc/pam.d/
 
 # 替换vim配置文件
 cp -rf $Config/vimrc /etc/vimrc
