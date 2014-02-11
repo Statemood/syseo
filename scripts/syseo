@@ -132,9 +132,6 @@ echo -e "$limitsopt"     >> $Limitcf
 # 禁用 'Crtl+ALT+DEL'
 sed -i 's/^exec /#exec /g' $cadfile
 
-# 密码及登录设置
-cp -rf $config/system-auth-ac /etc/pam.d/
-
 # 替换vim配置文件
 cp -rf $Config/vimrc /etc/vimrc
 
