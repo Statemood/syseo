@@ -92,7 +92,7 @@ sysinit "$Crontab" "00 23 *  *  *   root    /usr/sbin/ntpdate pool.ntp.org > /de
 # 替换sshd_config文件
 sshd_config=/etc/ssh/sshd_config
 mv     $sshd_config $sshd_config.default
-cp -rf $Configs/sshd_config $sshd_config
+cp -rf $Configd/sshd_config $sshd_config
 service sshd restart
 echo -e "\033[1;41mATTENTION! don't forget to login in a new terminal window and login into this server make sure the ssh service is working fine after the config file replaced\033[0m"
 
