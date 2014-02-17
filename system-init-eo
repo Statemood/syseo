@@ -1,92 +1,127 @@
 #! /bin/bash
 
-# 用于系统基本安全设置和优化
 # Created by Statemood, 2013-08-29
-# TAG: CentOS ONLY
+# Updated by Statemood, 2014-02-17
 
+fr='\033[0m'
 Configd=config
 Profile=/etc/profile
 Rclocal=/etc/rc.local
 Crontab=/etc/crontab
 Pamlogn=/etc/pam.d/login
 Limitcf=/etc/security/limits.conf
-sysinfo='WARNING: AUTHORIZED ONLY! '
+welcome='WARNING: AUTHORIZED ONLY! '
 cadfile=/etc/init/control-alt-delete.conf
+sysinfo='CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES'
 rmusers='adm lp uucp games gopher ftp operator saslauth tcpdump'
-rmservs='atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve'                                  
-PATH='/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin'
+rmservs='atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve'
+SYSPATH='/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin'
+NOTICES="\033[1mATTENTION!!!$fr
 
-grep -q 'CentOS' /etc/issue                                        
+    1.  Open new terminal window use added user to login this server make sure the ssh settings
+    and iptables rules are OK. If problem, check /etc/ssh/sshd_config or $ipfw rules.
+    
+    2.  When logon the system with new user, try switch to root by 'su -' or 'sudo (-i)' if the
+        current user was granted. If problem, check /etc/sudoers and user's info of the group.
+
+    3.  Files /etc/passwd, /etc/shadow, /etc/group, /etc/gshadow are cannot change until you're
+        use chattr -i for change the permission.
+
+    4.  When you see this message, crontab and at has been changed to be set up the scheduled 
+        task only by root. Add username to /etc/cron.allow and /etc/at.allow to change it.
+    
+    5.  \033[1mPlease reboot to active changes when your system are ready$fr.
+"
+USAGEMSGS="\033[1m$0$fr
+    --user-group
+    --wheel-user
+    --sudo-user \"username(:NP, NOPASSWD)\"
+    --ssh-user
+    --cron-user
+    --use-google-pub-dns
+"
+egrep -iq "$sysinfo" /etc/issue
 if [ $? = 1 ]                                                                                                     
 then                                                                                                                   
-    echo -e "\033[1;31mError: CentOS ONLY\033[0m"
+    echo -e "\033[1;31mError: Unsupported system$fr"
     exit 1
 fi
+
 sysinit(){
     echo -e "Set $2 to $(basename $1)"
     echo -e "$2"        >> $1
 }
+
 for sysagv in "$@"
 do
     case $sysagv in
-        -ug|--user-group)
+        --user-group)
             usergroup="$2"
+            echo "a:$2"
             shift 2
             ;;
         --wheel-user)
             wheeluser="$2"
+            echo "b:$2"
             shift 2
             ;;
         --sudo-user)
             sudouser="$2"
+            echo "c:$2"
             shift 2
             ;;
         --ssh-user)
             sshusers="$2"
+            echo "d:$2"
             echo -e "AllowUsers\t $sshusers" >> $config/sshd_config
             shift 2
             ;;
+        --cron-user)
+            cronuser="$2"
+            echo "e:$2"
+            shift 2
+            ;;
         --use-google-pub-dns)
+            echo "f:$2"
             echo "nameserver 8.8.8.8" >  /etc/resolv.conf
             echo "nameserver 8.8.4.4" >> /etc/resolv.conf
             ;;
+        --help)
+            echo -e "$USAGEMSGS"
+            exit
+            ;;
     esac
 done
-                                                                                     
-# 使用 'readonly' 保护变量不被修改
-# 设置登录超时退出时间为1800秒
+# Set timed out to 1800 seconds. Use 'readonly' to protect 'TMOUT', 'HISTTIMEFORMART'
 sysinit "$Profile" "export TMOUT=1800"
-
-# 设置PATH, 不得加入以下路径('./', '.', '..', '~/bin')
-sysinit "$Profile" "export PATH=$PATH"
-
-# 设置history日期格式        
+sysinit "$Profile" "export PATH=$SYSPATH"
 sysinit "$Profile" "export   HISTTIMEFORMAT=\"%F %T \`whoami\`(\`who am i | awk '{print \$1,\$5}'\`) \""                
 sysinit "$Profile" "readonly HISTTIMEFORMAT TMOUT"
 
-# 开机更改selinux为被动模式
+# Change selinux to 'permissive' after boot
 sysinit "$Rclocal" "/usr/sbin/setenforce 0"
 
-echo "$sysingo" > /etc/issue
-echo "$sysinfo" > /etc/system-release
+# Change the welcome messages and issue info
+echo "$welcome" > /etc/issue
+echo "$welcome" > /etc/system-release
 
-# 开机加载模块
+# Load modules
 sysinit "$Rclocal" "/sbin/modprobe bridge"
 sysinit "$Rclocal" "/sbin/modprobe ip_conntrack"
 
-# 开机设置ulimit
+# Set ulimit values
 sysinit "$Rclocal" "ulimit -SH 100000"
 sysinit "$Rclocal" "ulimit -n  100000"
 
-# 开机加载防火墙规则
+# Load iptables rules
 sysinit "$Rclocal" "/usr/local/sbin/firewall"
 
-# 开机时间同步
+# System time synchronize
 sysinit "$Rclocal" "/usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1 &"
 /usr/sbin/ntpdate pool.ntp.org
 /sbin/hwclock -w
 
-# 定时时间同步, 每日凌晨 23:00
+# System time syncronize at everyday 23:00
 sysinit "$Crontab" "00 23 *  *  *   root    /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1"
 
 # 替换sshd_config文件
@@ -94,13 +129,10 @@ sshd_config=/etc/ssh/sshd_config
 mv     $sshd_config $sshd_config.default
 cp -rf $Configd/sshd_config $sshd_config
 service sshd restart
-echo -e "\033[1;41mATTENTION! don't forget to login in a new terminal window and login into this server make sure the ssh service is working fine after the config file replaced\033[0m"
 
-# 系统/网络/内核/文件等优化选项
 cp -rf $Configd/sysctl.conf /etc/sysctl.conf 
 
-# 登录失败限制
-cp -rf $configd/system-auth-ac /etc/pam.d/system-auth-ac
+cp -rf $Configd/system-auth-ac /etc/pam.d/system-auth-ac
 
 pamlimit=/lib64/security/pam_limits.so
 if [ -f $pamlimit ]
@@ -124,20 +156,27 @@ limitsopt="* soft nproc  100000
 sed  -i 's/^# End of file//' $Limitcf
 echo -e "$limitsopt"     >> $Limitcf
 
-# 禁用 'Crtl+ALT+DEL'
+# Disable 'Crtl+ALT+DEL'
 sed -i 's/^exec /#exec /g' $cadfile
 
-# 替换vim配置文件
+# Replace vim config file
 cp -rf $Configd/vimrc /etc/vimrc
 
-# 限制使用crontab的用户
+# Set users who has permission to access crontab
 test -f /etc/cron.deny && rm -rf /etc/cron.deny
 test -f /etc/at.deny   && rm -rf /etc/at.deny
 echo -e "root"  > /etc/cron.allow
 echo -e "root"  > /etc/at.allow
 chmod 600 /etc/cron.allow /etc/at.allow
+if [ ! -z "$cronuser" ]
+then
+    for u in $cronuser
+    do
+        echo "$u" >> /etc/cron.allow
+    done
+fi
 
-# 删除多余用户
+# Remove unused users
 for u in $rmusers
 do
     printf "Deleting user %-16s ..." "$u"
@@ -145,13 +184,13 @@ do
     echo -e "\033[33mdone\033[0m"
 done
 
-# 关闭多余服务
+# Shutdown unused services
 for srvs in $rmservs
 do
     chkconfig $srvs off > /dev/null 2>&1
 done
 
-# 需要添加的用户:
+# Add users
 # username:group or username
 for ug in $usergroup
 do
@@ -173,37 +212,49 @@ do
 
     useradd -g $group $usern -m
     
-    mkdir -p -m 0700 ~$usern/.ssh
-    cp -rf $Configd/rsa/$usern.pub ~$usern/.ssh/authorized_keys
-    chown -R $usern:$group ~$usern
-    
+    rsa=$Configd/rsa/$usern.pub
+    atk=~$usern/.ssh/authorized_keys
+    if [ -f $rsa ]
+    then
+        mkdir -p -m 0700 ~$usern/.ssh
+        cp -rf $rsa $atk
+        chown -R $usern:$group ~$usern
+    fi
     echo $wheeluser | grep -q $usern
     if [ $? = 0 ]
     then
         usermod -G wheel $usern
     fi
 
-    echo $suduser   | grep -q $usern
+    echo $sudouser   | grep -q $usern
     if [ $? = 0 ]
     then
-        echo -e "$usern\tALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+        echo $sudouser   | egrep -iq "$usern:NP"
+            if [ $? = 0 ]
+            then
+            OPTS="NOPASSWD:ALL"
+        else
+            OPTS="ALL"
+        fi
+        echo -e "$usern\tALL=(ALL) $OPTS" >> /etc/sudoers
     fi
 done
 
-# 限制 su 用户
+# Set users who has permission to access command 'su'
 echo -e "auth\trequired\tpam_wheel.so use_uid" >> /etc/pam.d/su
 
-# 限制修改
+# Change mode
 for f in passwd shadow group gshadow
 do
     chattr +i /etc/$f
 done
 
-# 加载iptables自定义标准规则
+# Load iptables rules
 ipfw=/usr/local/sbin/firewall
 cp -rf iptables.firewall.standard $ipfw
 chown root:root $ipfw
 chmod 700 $ipfw
 chattr +i $ipfw
+$ipfw
 
-echo -e "\033[1mPlease reboot to active change when ready\033[0m"
+echo -e "$NOTICES"
