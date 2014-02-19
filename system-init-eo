@@ -16,10 +16,11 @@ sysinfo='CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES'
 rmusers='adm lp uucp games gopher ftp operator saslauth tcpdump'
 rmservs='atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve'
 SYSPATH='/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin'
-NOTICES="\033[1mATTENTION!!!$fr
+NOTICES="\033[1;41mATTENTION!!!$fr
 
     1.  Open new terminal window use added user to login this server make sure the ssh settings
-    and iptables rules are OK. If problem, check /etc/ssh/sshd_config or $ipfw rules.
+        and iptables rules are OK. 
+        If problem, check /etc/ssh/sshd_config or $ipfw rules.
     
     2.  When logon the system with new user, try switch to root by 'su -' or 'sudo (-i)' if the
         current user was granted. If problem, check /etc/sudoers and user's info of the group.
@@ -33,11 +34,11 @@ NOTICES="\033[1mATTENTION!!!$fr
     5.  \033[1mPlease reboot to active changes when your system are ready$fr.
 "
 USAGEMSGS="\033[1m$0$fr
-    --user-group
-    --wheel-user
-    --sudo-user \"username(:NP, NOPASSWD)\"
-    --ssh-user
-    --cron-user
+    --user
+    --wheel
+    --sudo  \"username(:NP, NOPASSWD)\"
+    --ssh
+    --cron
     --use-google-pub-dns
 "
 egrep -iq "$sysinfo" /etc/issue
@@ -55,28 +56,28 @@ sysinit(){
 for sysagv in "$@"
 do
     case $sysagv in
-        --user-group)
+        --user)
             usergroup="$2"
             echo "a:$2"
             shift 2
             ;;
-        --wheel-user)
+        --wheel)
             wheeluser="$2"
             echo "b:$2"
             shift 2
             ;;
-        --sudo-user)
+        --sudo)
             sudouser="$2"
             echo "c:$2"
             shift 2
             ;;
-        --ssh-user)
+        --ssh)
             sshusers="$2"
             echo "d:$2"
             echo -e "AllowUsers\t $sshusers" >> $config/sshd_config
             shift 2
             ;;
-        --cron-user)
+        --cron)
             cronuser="$2"
             echo "e:$2"
             shift 2
@@ -131,7 +132,6 @@ cp -rf $Configd/sshd_config $sshd_config
 service sshd restart
 
 cp -rf $Configd/sysctl.conf /etc/sysctl.conf 
-
 cp -rf $Configd/system-auth-ac /etc/pam.d/system-auth-ac
 
 pamlimit=/lib64/security/pam_limits.so
