@@ -1,21 +1,21 @@
 #! /bin/bash
 
 # Created by Statemood, 2013-08-29
-# Updated by Statemood, 2014-02-17
+# Updated by Statemood, 2014-04-29
 
 fr='\033[0m'
-Configd=config
-Profile=/etc/profile
-Rclocal=/etc/rc.local
-Crontab=/etc/crontab
-Pamlogn=/etc/pam.d/login
-Limitcf=/etc/security/limits.conf
-welcome='WARNING: AUTHORIZED ONLY! '
-cadfile=/etc/init/control-alt-delete.conf
-sysinfo='CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES'
-rmusers='adm lp uucp games gopher ftp operator saslauth tcpdump'
-rmservs='atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve'
-SYSPATH='/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin'
+Configd="config"
+Profile="/etc/profile"
+Rclocal="/etc/rc.local"
+Crontab="/etc/crontab"
+Pamlogn="/etc/pam.d/login"
+Limitcf="/etc/security/limits.conf"
+welcome="WARNING: AUTHORIZED ONLY! "
+cadfile="/etc/init/control-alt-delete.conf"
+sysinfo="CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES"
+rmusers="adm lp uucp games gopher ftp operator saslauth tcpdump"
+rmservs="atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve"
+SYSPATH="/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin"
 NOTICES="\033[1;41mATTENTION!!!$fr
 
     1.  Open new terminal window use added user to login this server make sure the ssh settings
@@ -34,12 +34,12 @@ NOTICES="\033[1;41mATTENTION!!!$fr
     5.  \033[1mPlease reboot to active changes when your system are ready$fr.
 "
 USAGEMSGS="\033[1m$0$fr
-    --user
-    --wheel
-    --sudo  \"username(:NP, NOPASSWD)\"
-    --ssh
-    --cron
-    --use-google-pub-dns
+    -u, --user
+    -w, --wheel
+    -s, --sudo  \"username(:NP, NOPASSWD)\"
+    -S, --ssh
+    -c, --cron
+    -d, --use-google-pub-dns
 "
 egrep -iq "$sysinfo" /etc/issue
 if [ $? = 1 ]                                                                                                     
@@ -56,34 +56,28 @@ sysinit(){
 for sysagv in "$@"
 do
     case $sysagv in
-        --user)
+        -u|--user)
             usergroup="$2"
-            echo "a:$2"
             shift 2
             ;;
-        --wheel)
+        -w|--wheel)
             wheeluser="$2"
-            echo "b:$2"
             shift 2
             ;;
-        --sudo)
+        -s|--sudo)
             sudouser="$2"
-            echo "c:$2"
             shift 2
             ;;
-        --ssh)
+        -S|--ssh)
             sshusers="$2"
-            echo "d:$2"
             echo -e "AllowUsers\t $sshusers" >> $config/sshd_config
             shift 2
             ;;
-        --cron)
+        -c|--cron)
             cronuser="$2"
-            echo "e:$2"
             shift 2
             ;;
-        --use-google-pub-dns)
-            echo "f:$2"
+        -d|--use-google-pub-dns)
             echo "nameserver 8.8.8.8" >  /etc/resolv.conf
             echo "nameserver 8.8.4.4" >> /etc/resolv.conf
             ;;
