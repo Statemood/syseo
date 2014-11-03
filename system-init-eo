@@ -4,6 +4,7 @@
 # Updated by Statemood, 2014-04-29
 
 fr='\033[0m'
+
 Configd="config"
 Profile="/etc/profile"
 Rclocal="/etc/rc.local"

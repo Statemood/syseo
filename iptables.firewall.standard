@@ -4,28 +4,45 @@
 # File: /usr/local/sbin/firewall
 #       root:root, 700
 # Created by Statemood, 2013.08.29
-# Updated by Statemood, 2013.08.29
+# Updated by Statemood, 2014.11.03
 #
 # ------------------------------------------
 
 IPTABLES='/sbin/iptables'
-MONITORS='SERVER_IP'
-FWLOGOPT='--log-prefix "INVALID DROP " --log-ip-option --log-tcp-option'
+PORT_SSH='SSHD_PORT'
+
+SSH_IP_0='SSH_IP'
 
 # init iptables
 $IPTABLES -F
 $IPTABLES -X
 $IPTABLES -P INPUT DROP
 
+$IPTABLES -N LGDRP
+
+
 # ACCEPT rules
+# --------------------------------
+
+# Default rules
 $IPTABLES -A INPUT -i lo -j ACCEPT
-$IPTABLES -A INPUT -m conntrack --ctstate INVALID                               -j LOG $FWLOGOPT
-$IPTABLES -A INPUT -m conntrack --ctstate INVALID                               -j DROP
-$IPTABLES -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED                   -j ACCEPT
-$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $MONITORS  --dport 22   -j ACCEPT
-$IPTABLES -A INPUT -m conntrack --ctstate NEW -p udp -s $MONITORS  --dport 161  -j ACCEPT
-$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $MONITORS  --dport 5666 -j ACCEPT
-$IPTABLES -A INPUT -p icmp -s $MONITORS --icmp-type echo-request                -j ACCEPT
+$IPTABLES -A INPUT -m conntrack --ctstate INVALID                -j LGDRP
+$IPTABLES -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED    -j ACCEPT
+
+$IPTABLES -A LGDRP -m limit --limit 10/m --limit-burst 5 -j LOG --log-prefix "INVALID DROP " --log-ip-option --log-tcp-option
+$IPTABLES -A LGDRP -j DROP
+
+# SSH 
+$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $SSH_IP_0       --dport $PORT_SSH -j ACCEPT
+
+
+# Coustom rules
+
+
+# Unmatched rules
 $IPTABLES -A INPUT -j DROP
 
+# Save rules
 /sbin/service iptables save
+
+printf "`date +'%F %T'` \033[1;33mAll rules loaded\n\033[0m"
