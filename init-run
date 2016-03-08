@@ -88,15 +88,13 @@ do
             echo "nameserver 8.8.8.8" >  /etc/resolv.conf
             echo "nameserver 8.8.4.4" >> /etc/resolv.conf
             ;;
-		-U|--update)
-			
-			yum update -y
         --help)
             echo -e "$USAGEMSGS"
             exit
             ;;
     esac
 done
+
 # Set timed out to 1800 seconds. Use 'readonly' to protect 'TMOUT', 'HISTTIMEFORMART'
 sysinit "$Profile" "export TMOUT=1800"
 sysinit "$Profile" "export PATH=$SYSPATH"
@@ -247,18 +245,13 @@ done
 # Set users who has permission to access command 'su'
 echo -e "auth\trequired\tpam_wheel.so use_uid" >> /etc/pam.d/su
 
-# Change mode
-for f in passwd shadow group gshadow
-do
-    chattr +i /etc/$f
-done
-
-
 # Load iptables rules
 ipfw=/usr/local/sbin/firewall
 cp -rf iptables.firewall.standard $ipfw
 chown root:root $ipfw
 chmod 700 $ipfw
 $ipfw
+
+msg "iptables rules loaded"
 
 echo -e "$NOTICES"
