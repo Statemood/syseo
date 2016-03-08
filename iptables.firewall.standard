@@ -8,12 +8,16 @@
 #
 # ------------------------------------------
 
+
+# 设置变量
+
 IPTABLES='/sbin/iptables'
 PORT_SSH='SSHD_PORT'
 
-SSH_IP_0='SSH_IP'
+SSH_ALLOED_IP='0.0.0.0/0'
 
-# init iptables
+
+# 初始化iptables 规则
 $IPTABLES -F
 $IPTABLES -X
 $IPTABLES -P INPUT DROP
@@ -25,21 +29,33 @@ $IPTABLES -N LGDRP
 # --------------------------------
 
 # Default rules
+
+# 允许所有通过 lo 设备进入的流量
 $IPTABLES -A INPUT -i lo -j ACCEPT
+
+# 将所有状态为 INVALID 的数据转发到 LGDRP 处理
 $IPTABLES -A INPUT -m conntrack --ctstate INVALID                -j LGDRP
+
+# 允许所有状态为 ESTABLISHED,RELATED 的数据包进入
 $IPTABLES -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED    -j ACCEPT
 
+# 将匹配的数据包记录，并限制记录数量
 $IPTABLES -A LGDRP -m limit --limit 10/m --limit-burst 5 -j LOG --log-prefix "INVALID DROP " --log-ip-option --log-tcp-option
+
+# 丢弃所有匹配的数据包
 $IPTABLES -A LGDRP -j DROP
 
+# 允许来自 SSH_IP_0 的IP使用TCP协议与 PORT_SSH 端口创建连接
 # SSH 
-$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $SSH_IP_0       --dport $PORT_SSH -j ACCEPT
+$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $SSH_ALLOWED_IP       --dport $PORT_SSH -j ACCEPT
 
 
 # Coustom rules
+#$IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s 10.20.30.40		--dport 80    -j ACCEPT
 
 
 # Unmatched rules
+# 不符合上面规则的发往本机的数据包全部丢弃(DROP)
 $IPTABLES -A INPUT -j DROP
 
 # Save rules

@@ -17,6 +17,9 @@ sysinfo="CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES"
 rmusers="adm lp uucp games gopher ftp operator saslauth tcpdump"
 rmservs="atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve"
 SYSPATH="/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin"
+
+TIME_SERVER="time.apple.com"
+
 NOTICES="\033[1;41mATTENTION!!!$fr
 
     1.  Open new terminal window use added user to login this server make sure the ssh settings
@@ -36,27 +39,30 @@ NOTICES="\033[1;41mATTENTION!!!$fr
 "
 USAGEMSGS="\033[1m$0$fr
     -u, --user
+	-U, --update
     -w, --wheel
     -s, --sudo  \"username(:NP, NOPASSWD)\"
     -S, --ssh
     -c, --cron
     -d, --use-google-pub-dns
 "
-egrep -iq "$sysinfo" /etc/issue
-if [ $? = 1 ]                                                                                                     
-then                                                                                                                   
-    echo -e "\033[1;31mError: Unsupported system$fr"
-    exit 1
-fi
+
+msg(){
+	echo -e "`date +'%F %T'` $1"
+}
 
 sysinit(){
-    echo -e "Set $2 to $(basename $1)"
+    msg "Set $2 to $(basename $1)"
     echo -e "$2"        >> $1
 }
 
 for sysagv in "$@"
 do
     case $sysagv in
+		-i|--ip)
+			ssh_ip="$2"
+			shift 2
+			;;
         -u|--user)
             usergroup="$2"
             shift 2
@@ -82,6 +88,9 @@ do
             echo "nameserver 8.8.8.8" >  /etc/resolv.conf
             echo "nameserver 8.8.4.4" >> /etc/resolv.conf
             ;;
+		-U|--update)
+			
+			yum update -y
         --help)
             echo -e "$USAGEMSGS"
             exit
@@ -113,12 +122,12 @@ sysinit "$Rclocal" "ulimit -n  100000"
 sysinit "$Rclocal" "/usr/local/sbin/firewall"
 
 # System time synchronize
-sysinit "$Rclocal" "/usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1 &"
-/usr/sbin/ntpdate pool.ntp.org
+sysinit "$Rclocal" "/usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1 &"
+/usr/sbin/ntpdate $TIME_SERVER
 /sbin/hwclock -w
 
 # System time syncronize at everyday 23:00
-sysinit "$Crontab" "00 23 *  *  *   root    /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1"
+sysinit "$Crontab" "00 23 *  *  *   root    /usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1"
 
 # 替换sshd_config文件
 sshd_config=/etc/ssh/sshd_config
@@ -138,7 +147,7 @@ then
         sysinit "$Pamlogn" "session    required     $pamlimit"
     fi
 else
-    echo -e "\033[1;41mError: $pamlimit does not exist\033[0m"
+    msg "\033[1;41mError: $pamlimit does not exist\033[0m"
 fi 
 
 limitsopt="* soft nproc  100000
@@ -244,12 +253,12 @@ do
     chattr +i /etc/$f
 done
 
+
 # Load iptables rules
 ipfw=/usr/local/sbin/firewall
 cp -rf iptables.firewall.standard $ipfw
 chown root:root $ipfw
 chmod 700 $ipfw
-chattr +i $ipfw
 $ipfw
 
 echo -e "$NOTICES"
