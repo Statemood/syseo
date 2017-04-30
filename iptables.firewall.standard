@@ -12,9 +12,9 @@
 # 设置变量
 
 IPTABLES='/sbin/iptables'
-PORT_SSH='SSHD_PORT'
+PORT_SSH='22'
 
-SSH_ALLOED_IP='0.0.0.0/0'
+SSH_ALLOWED_IP='0.0.0.0/0'
 
 
 # 初始化iptables 规则
@@ -46,7 +46,7 @@ $IPTABLES -A LGDRP -m limit --limit 10/m --limit-burst 5 -j LOG --log-prefix "IN
 $IPTABLES -A LGDRP -j DROP
 
 # 允许来自 SSH_IP_0 的IP使用TCP协议与 PORT_SSH 端口创建连接
-# SSH 
+# SSH
 $IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $SSH_ALLOWED_IP       --dport $PORT_SSH -j ACCEPT
 
 
@@ -57,8 +57,5 @@ $IPTABLES -A INPUT -m conntrack --ctstate NEW -p tcp -s $SSH_ALLOWED_IP       --
 # Unmatched rules
 # 不符合上面规则的发往本机的数据包全部丢弃(DROP)
 $IPTABLES -A INPUT -j DROP
-
-# Save rules
-/sbin/service iptables save
 
 printf "`date +'%F %T'` \033[1;33mAll rules loaded\n\033[0m"

@@ -11,7 +11,6 @@ Rclocal="/etc/rc.local"
 Crontab="/etc/crontab"
 Pamlogn="/etc/pam.d/login"
 Limitcf="/etc/security/limits.conf"
-welcome="WARNING: AUTHORIZED ONLY! "
 cadfile="/etc/init/control-alt-delete.conf"
 sysinfo="CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES"
 rmusers="adm lp uucp games gopher ftp operator saslauth tcpdump"
@@ -23,18 +22,18 @@ TIME_SERVER="time.apple.com"
 NOTICES="\033[1;41mATTENTION!!!$fr
 
     1.  Open new terminal window use added user to login this server make sure the ssh settings
-        and iptables rules are OK. 
+        and iptables rules are OK.
         If problem, check /etc/ssh/sshd_config or $ipfw rules.
-    
+
     2.  When logon the system with new user, try switch to root by 'su -' or 'sudo (-i)' if the
         current user was granted. If problem, check /etc/sudoers and user's info of the group.
 
     3.  Files /etc/passwd, /etc/shadow, /etc/group, /etc/gshadow are cannot change until you're
         use chattr -i for change the permission.
 
-    4.  When you see this message, crontab and at has been changed to be set up the scheduled 
+    4.  When you see this message, crontab and at has been changed to be set up the scheduled
         task only by root. Add username to /etc/cron.allow and /etc/at.allow to change it.
-    
+
     5.  \033[1mPlease reboot to active changes when your system are ready$fr.
 "
 USAGEMSGS="\033[1m$0$fr
@@ -44,7 +43,7 @@ USAGEMSGS="\033[1m$0$fr
     -s, --sudo  \"username(:NP, NOPASSWD)\"
     -S, --ssh
     -c, --cron
-    -d, --use-google-pub-dns
+    --use-google-pub-dns
 "
 
 msg(){
@@ -84,7 +83,7 @@ do
             cronuser="$2"
             shift 2
             ;;
-        -d|--use-google-pub-dns)
+        --use-google-pub-dns)
             echo "nameserver 8.8.8.8" >  /etc/resolv.conf
             echo "nameserver 8.8.4.4" >> /etc/resolv.conf
             ;;
@@ -95,18 +94,22 @@ do
     esac
 done
 
+ls -l /proc/1/exe | grep -q "/systemd$"
+
+test $? = 0 && sys_ver=7 || sys_ver=6
+
+srvctl(){
+    action="$1"
+    target="$2"
+    test $sys_ver = 7 && systemctl $action $target || service $target $action
+}
+
+
 # Set timed out to 1800 seconds. Use 'readonly' to protect 'TMOUT', 'HISTTIMEFORMART'
 sysinit "$Profile" "export TMOUT=1800"
 sysinit "$Profile" "export PATH=$SYSPATH"
-sysinit "$Profile" "export   HISTTIMEFORMAT=\"%F %T \`whoami\`(\`who am i | awk '{print \$1,\$5}'\`) \""                
+sysinit "$Profile" "export   HISTTIMEFORMAT=\"%F %T \`whoami\`(\`who am i | awk '{print \$1,\$5}'\`) \""
 sysinit "$Profile" "readonly HISTTIMEFORMAT TMOUT"
-
-# Change selinux to 'permissive' after boot
-sysinit "$Rclocal" "/usr/sbin/setenforce 0"
-
-# Change the welcome messages and issue info
-echo "$welcome" > /etc/issue
-echo "$welcome" > /etc/system-release
 
 # Load modules
 sysinit "$Rclocal" "/sbin/modprobe bridge"
@@ -121,19 +124,22 @@ sysinit "$Rclocal" "/usr/local/sbin/firewall"
 
 # System time synchronize
 sysinit "$Rclocal" "/usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1 &"
-/usr/sbin/ntpdate $TIME_SERVER
+ntpdate=/usr/sbin/ntpdate
+
+test -x $ntpdate || yum install -y ntpdate
+$ntpdate $TIME_SERVER
 /sbin/hwclock -w
 
 # System time syncronize at everyday 23:00
-sysinit "$Crontab" "00 23 *  *  *   root    /usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1"
+sysinit "$Crontab" "30 23 *  *  *   root    /usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1"
 
 # 替换sshd_config文件
 sshd_config=/etc/ssh/sshd_config
 mv     $sshd_config $sshd_config.default
 cp -rf $Configd/sshd_config $sshd_config
-service sshd restart
+srvctl restart sshd
 
-cp -rf $Configd/sysctl.conf /etc/sysctl.conf 
+cp -rf $Configd/sysctl.conf /etc/sysctl.conf
 cp -rf $Configd/system-auth-ac /etc/pam.d/system-auth-ac
 
 pamlimit=/lib64/security/pam_limits.so
@@ -146,7 +152,7 @@ then
     fi
 else
     msg "\033[1;41mError: $pamlimit does not exist\033[0m"
-fi 
+fi
 
 limitsopt="* soft nproc  100000
 * hard nproc  100000
@@ -203,9 +209,9 @@ do
         group=`echo $ug | awk -F ':' '{print $2}'`
     else
         usern=$ug
-        group=users  # 默认用户组 
+        group=users  # 默认用户组
     fi
-      
+
     grep -q "$group" /etc/group
     if [ $? != 0 ]
     then
@@ -213,14 +219,14 @@ do
     fi
 
     useradd -g $group $usern -m
-    
+
     rsa=$Configd/rsa/$usern.pub
-    atk=~$usern/.ssh/authorized_keys
+    atk=/home/$usern/.ssh/authorized_keys
     if [ -f $rsa ]
     then
-        mkdir -p -m 0700 ~$usern/.ssh
+        mkdir -p -m 0700 /home/$usern/.ssh
         cp -rf $rsa $atk
-        chown -R $usern:$group ~$usern
+        chown -R $usern:$group /home/$usern
     fi
     echo $wheeluser | grep -q $usern
     if [ $? = 0 ]
