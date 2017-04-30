@@ -5,12 +5,12 @@
 
 fr='\033[0m'
 
-Configd="config"
-Profile="/etc/profile"
-Rclocal="/etc/rc.local"
-Crontab="/etc/crontab"
-Pamlogn="/etc/pam.d/login"
-Limitcf="/etc/security/limits.conf"
+configd="config"
+profile="/etc/profile"
+rclocal="/etc/rc.local"
+crontab="/etc/crontab"
+pamlogn="/etc/pam.d/login"
+limitcf="/etc/security/limits.conf"
 cadfile="/etc/init/control-alt-delete.conf"
 sysinfo="CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES"
 rmusers="adm lp uucp games gopher ftp operator saslauth tcpdump"
@@ -104,26 +104,27 @@ srvctl(){
     test $sys_ver = 7 && systemctl $action $target || service $target $action
 }
 
-
 # Set timed out to 1800 seconds. Use 'readonly' to protect 'TMOUT', 'HISTTIMEFORMART'
-sysinit "$Profile" "export TMOUT=1800"
-sysinit "$Profile" "export PATH=$SYSPATH"
-sysinit "$Profile" "export   HISTTIMEFORMAT=\"%F %T \`whoami\`(\`who am i | awk '{print \$1,\$5}'\`) \""
-sysinit "$Profile" "readonly HISTTIMEFORMAT TMOUT"
+sysinit "$profile" "export TMOUT=1800"
+sysinit "$profile" "export PATH=$SYSPATH"
+sysinit "$profile" "export   HISTTIMEFORMAT=\"%F %T \`whoami\`(\`who am i | awk '{print \$1,\$5}'\`) \""
+sysinit "$profile" "readonly HISTTIMEFORMAT TMOUT"
+
+test -x $rclocal || chmod 754 $rclocal
 
 # Load modules
-sysinit "$Rclocal" "/sbin/modprobe bridge"
-sysinit "$Rclocal" "/sbin/modprobe ip_conntrack"
+sysinit "$rclocal" "/sbin/modprobe bridge"
+sysinit "$rclocal" "/sbin/modprobe ip_conntrack"
 
 # Set ulimit values
-sysinit "$Rclocal" "ulimit -SH 100000"
-sysinit "$Rclocal" "ulimit -n  100000"
+sysinit "$rclocal" "ulimit -SH 100000"
+sysinit "$rclocal" "ulimit -n  100000"
 
 # Load iptables rules
-sysinit "$Rclocal" "/usr/local/sbin/firewall"
+sysinit "$rclocal" "/usr/local/sbin/firewall"
 
 # System time synchronize
-sysinit "$Rclocal" "/usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1 &"
+sysinit "$rclocal" "/usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1 &"
 ntpdate=/usr/sbin/ntpdate
 
 test -x $ntpdate || yum install -y ntpdate
@@ -131,24 +132,24 @@ $ntpdate $TIME_SERVER
 /sbin/hwclock -w
 
 # System time syncronize at everyday 23:00
-sysinit "$Crontab" "30 23 *  *  *   root    /usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1"
+sysinit "$crontab" "30 23 *  *  *   root    /usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1"
 
 # 替换sshd_config文件
 sshd_config=/etc/ssh/sshd_config
 mv     $sshd_config $sshd_config.default
-cp -rf $Configd/sshd_config $sshd_config
+cp -rf $configd/sshd_config $sshd_config
 srvctl restart sshd
 
-cp -rf $Configd/sysctl.conf /etc/sysctl.conf
-cp -rf $Configd/system-auth-ac /etc/pam.d/system-auth-ac
+cp -rf $configd/sysctl.conf /etc/sysctl.conf
+cp -rf $configd/system-auth-ac /etc/pam.d/system-auth-ac
 
 pamlimit=/lib64/security/pam_limits.so
 if [ -f $pamlimit ]
 then
-    grep -q "$pamlimit" $Pamlogn
+    grep -q "$pamlimit" $pamlogn
     if [ $? = 1 ]
     then
-        sysinit "$Pamlogn" "session    required     $pamlimit"
+        sysinit "$pamlogn" "session    required     $pamlimit"
     fi
 else
     msg "\033[1;41mError: $pamlimit does not exist\033[0m"
@@ -161,14 +162,14 @@ limitsopt="* soft nproc  100000
 
 # End of file"
 
-sed  -i 's/^# End of file//' $Limitcf
-echo -e "$limitsopt"     >> $Limitcf
+sed  -i 's/^# End of file//' $limitcf
+echo -e "$limitsopt"     >> $limitcf
 
 # Disable 'Crtl+ALT+DEL'
 sed -i 's/^exec /#exec /g' $cadfile
 
 # Replace vim config file
-cp -rf $Configd/vimrc /etc/vimrc
+cp -rf $configd/vimrc /etc/vimrc
 
 # Set users who has permission to access crontab
 test -f /etc/cron.deny && rm -rf /etc/cron.deny
@@ -220,7 +221,7 @@ do
 
     useradd -g $group $usern -m
 
-    rsa=$Configd/rsa/$usern.pub
+    rsa=$configd/rsa/$usern.pub
     atk=/home/$usern/.ssh/authorized_keys
     if [ -f $rsa ]
     then
