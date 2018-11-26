@@ -99,17 +99,17 @@ do
             shift 2
             ;;
         --use-google-pub-dns)
-            echo "nameserver 8.8.8.8" >  /etc/resolv.conf
-            echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+            echo -e "nameserver 8.8.8.8\nnameserver 8.8.4.4" > /etc/resolv.conf
             ;;
         --iptables)
-            case "$2" in 
+            case "$2" in
                 update)
+                    ipfw=/usr/local/sbin/firewall
                     # Load iptables rules
-                    sysinit "$rclocal" "/usr/local/sbin/firewall"
+                    sysinit "$rclocal" "$ipfw"
 
                     # Load iptables rules
-                    ipfw=/usr/local/sbin/firewall
+                    
                     cp -rf iptables.firewall.standard $ipfw
                     chown root:root $ipfw
                     chmod 700 $ipfw
@@ -121,9 +121,8 @@ do
                     msg "Disable iptables, allow all connections"
                     systemctl stop      firewalld
                     systemctl disable   firewalld
-                    iptables -F 
                     ;;
-            esac 
+            esac
             shift 2
             ;;
         --selinux)
