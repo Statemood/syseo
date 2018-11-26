@@ -119,6 +119,8 @@ do
                     ;;
                 disable)
                     msg "Disable iptables, allow all connections"
+                    systemctl stop      firewalld
+                    systemctl disable   firewalld
                     iptables -F 
                     ;;
             esac 
