@@ -13,11 +13,11 @@ pamlogn="/etc/pam.d/login"
 limitcf="/etc/security/limits.conf"
 cadfile="/etc/init/control-alt-delete.conf"
 sysinfo="CentOS|RHEL|Red Hat Enterprise Linux|Fedora|openSUSE|SLES"
-rmusers="adm lp uucp games gopher ftp operator saslauth tcpdump"
+rmusers="adm lp uucp games gopher ftp operator saslauth"
 rmservs="atd acpid cpuspeed kdump netconsole netfs nfslock rpcgssd rpcidmapd svnserve"
 SYSPATH="/usr/local/metis/bin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin"
 
-TIME_SERVER="time.apple.com"
+TIME_SERVER="cn.pool.ntp.org"
 
 NOTICES="\033[1;41mATTENTION!!!$fr
 
@@ -44,6 +44,13 @@ USAGEMSGS="\033[1m$0$fr
     -S, --ssh
     -c, --cron
     --use-google-pub-dns
+    --iptables\n
+    \tupdate\n
+    \tdisable
+    --selinux\n
+    \tdisable\n
+    \tenforcing\n
+    \tpermissive
 "
 
 msg(){
@@ -53,6 +60,14 @@ msg(){
 sysinit(){
     msg "Set $2 to $(basename $1)"
     echo -e "$2"        >> $1
+}
+
+srvctl(){
+    action="$1"
+    target="$2"
+    test -x /usr/bin/systemctl && sys_ver=7 || sys_ver=6
+
+    test $sys_ver = 7 && systemctl $action $target || service $target $action
 }
 
 for sysagv in "$@"
@@ -87,6 +102,42 @@ do
             echo "nameserver 8.8.8.8" >  /etc/resolv.conf
             echo "nameserver 8.8.4.4" >> /etc/resolv.conf
             ;;
+        --iptables)
+            case "$2" in 
+                update)
+                    # Load iptables rules
+                    sysinit "$rclocal" "/usr/local/sbin/firewall"
+
+                    # Load iptables rules
+                    ipfw=/usr/local/sbin/firewall
+                    cp -rf iptables.firewall.standard $ipfw
+                    chown root:root $ipfw
+                    chmod 700 $ipfw
+                    $ipfw
+
+                    msg "iptables rules loaded"
+                    ;;
+                disable)
+                    msg "Disable iptables, allow all connections"
+                    iptables -F 
+                    ;;
+            esac 
+            shift 2
+            ;;
+        --selinux)
+            case "$2" in 
+                disable)        sed -i 's/SELINUX=.*/SELINUX=disable/'      /etc/selinux/config ;;
+                enforcing)      sed -i 's/SELINUX=.*/SELINUX=enforcing/'    /etc/selinux/config ;;
+                permissive)     sed -i 's/SELINUX=.*/SELINUX=permissive/'   /etc/selinux/config ;;
+            esac
+            shift 2
+            ;;
+        --hostname)
+            msg "Set hostname to $2"
+            hostname "$2"
+            echo "$2" > /etc/hostname
+            shift 2
+            ;;
         --help)
             echo -e "$USAGEMSGS"
             exit
@@ -94,21 +145,11 @@ do
     esac
 done
 
-ls -l /proc/1/exe | grep -q "/systemd$"
-
-test $? = 0 && sys_ver=7 || sys_ver=6
-
-srvctl(){
-    action="$1"
-    target="$2"
-    test $sys_ver = 7 && systemctl $action $target || service $target $action
-}
-
-# Set timed out to 1800 seconds. Use 'readonly' to protect 'TMOUT', 'HISTTIMEFORMART'
+# Set timed out to 1800 seconds. Use 'readonly' to protect 'TMOUT', 'HISTTIMEFORMART', 'PATH'
 sysinit "$profile" "export TMOUT=1800"
 sysinit "$profile" "export PATH=$SYSPATH"
 sysinit "$profile" "export   HISTTIMEFORMAT=\"%F %T \`whoami\`(\`who am i | awk '{print \$1,\$5}'\`) \""
-sysinit "$profile" "readonly HISTTIMEFORMAT TMOUT"
+sysinit "$profile" "readonly HISTTIMEFORMAT TMOUT PATH"
 
 test -x $rclocal || chmod 754 $rclocal
 
@@ -119,9 +160,6 @@ sysinit "$rclocal" "/sbin/modprobe ip_conntrack"
 # Set ulimit values
 sysinit "$rclocal" "ulimit -SH 100000"
 sysinit "$rclocal" "ulimit -n  100000"
-
-# Load iptables rules
-sysinit "$rclocal" "/usr/local/sbin/firewall"
 
 # System time synchronize
 sysinit "$rclocal" "/usr/sbin/ntpdate $TIME_SERVER > /dev/null 2>&1 &"
@@ -251,14 +289,5 @@ done
 
 # Set users who has permission to access command 'su'
 echo -e "auth\trequired\tpam_wheel.so use_uid" >> /etc/pam.d/su
-
-# Load iptables rules
-ipfw=/usr/local/sbin/firewall
-cp -rf iptables.firewall.standard $ipfw
-chown root:root $ipfw
-chmod 700 $ipfw
-$ipfw
-
-msg "iptables rules loaded"
 
 echo -e "$NOTICES"
